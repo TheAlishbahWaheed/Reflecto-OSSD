@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme }}">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reflecto — Journal · Study · Focus</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<style>
+.page-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;position:relative;z-index:1}
+.left-panel{background:var(--sidebar-bg);border-right:1.5px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:3rem 3.5rem}
+.brand-logo{display:flex;align-items:baseline;gap:.5rem}
+.brand-logo h1{font-size:2.15rem;letter-spacing:-.02em;color:var(--text)}
+.brand-logo h1 span{color:var(--accent)}
+.kitty-logo{font-size:1.35rem;display:inline-block;animation:kittyBob 2.8s ease-in-out infinite}
+.brand-tagline{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+.feature-list{list-style:none;margin:auto 0;display:flex;flex-direction:column;gap:1.2rem}
+.feature-item{display:flex;align-items:flex-start;gap:1rem}
+.feat-icon{width:40px;height:40px;flex-shrink:0;background:var(--accent-bg);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.feat-text h4{font-size:.88rem;color:var(--text);margin-bottom:.08rem}
+.feat-text p{font-size:.75rem;color:var(--muted);line-height:1.5}
+.left-footer{font-size:.68rem;color:var(--muted);opacity:.55;display:flex;gap:.4rem;align-items:center}
+.right-panel{display:flex;flex-direction:column;align-items:center;padding:1.5rem 3.5rem 3rem;overflow-y:auto;min-height:100vh}
+.theme-switcher{width:100%;max-width:420px;display:flex;align-items:center;justify-content:flex-end;gap:.55rem;padding-bottom:1rem}
+.theme-switcher label{font-size:.68rem;color:var(--muted);text-transform:uppercase}
+.theme-select{font-size:.78rem;color:var(--text);background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:.32rem .6rem;cursor:pointer;outline:none}
+.login-card{background:var(--surface);border:1.5px solid var(--border);border-radius:22px;padding:2.5rem 2.75rem;width:100%;max-width:420px;box-shadow:var(--shadow-lg)}
+.card-header{margin-bottom:1.6rem;text-align:center}
+.card-kitty{font-size:2.4rem;display:inline-block;animation:kittyWave 2.2s ease-in-out infinite;margin-bottom:.45rem}
+.card-header h2{font-size:1.6rem;color:var(--text);margin-bottom:.2rem}
+.card-header p{font-size:.82rem;color:var(--muted)}
+.prev-users-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.6rem}
+.prev-user-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem}
+.prev-user-btn{flex:1;display:flex;align-items:center;gap:.8rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:.62rem .9rem;cursor:pointer;color:var(--text);text-align:left;transition:border-color .2s,transform .15s;font-family:inherit}
+.prev-user-btn:hover{border-color:var(--accent);transform:translateX(3px)}
+.prev-user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-bg);border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;flex-shrink:0;color:var(--accent)}
+.prev-user-name{font-size:.85rem;font-weight:500}
+.prev-user-date{font-size:.67rem;color:var(--muted)}
+.btn-del-user{background:none;border:1.5px solid var(--border);border-radius:8px;color:var(--muted);padding:.42rem .55rem;cursor:pointer;font-size:.8rem;transition:border-color .2s,color .2s;font-family:inherit}
+.btn-del-user:hover{border-color:#c94040;color:#c94040}
+.divider{text-align:center;font-size:.72rem;color:var(--muted);margin:1rem 0}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.72rem;font-weight:500;color:var(--muted);margin-bottom:.38rem;letter-spacing:.05em;text-transform:uppercase}
+.input-wrap{position:relative}
+.input-icon{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);font-size:.9rem;pointer-events:none;opacity:.55}
+.form-input{font-family:inherit;width:100%;color:var(--text);background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:.68rem .9rem .68rem 2.45rem;font-size:.9rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.error-banner{background:rgba(201,64,64,.1);border:1.5px solid #c94040;border-radius:8px;padding:.5rem .8rem;font-size:.78rem;color:#c94040;margin-bottom:.9rem}
+.ok-banner{background:rgba(46,138,80,.1);border:1.5px solid #2e8a50;border-radius:8px;padding:.5rem .8rem;font-size:.78rem;color:#2e8a50;margin-bottom:.9rem}
+.btn-submit{font-family:inherit;width:100%;padding:.76rem;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:transform .15s,opacity .2s;box-shadow:0 3px 12px var(--accent-glow)}
+.btn-submit:hover{opacity:.91;transform:translateY(-1px)}
+.privacy-note{text-align:center;margin-top:1.1rem;font-size:.69rem;color:var(--muted);opacity:.65}
+@keyframes kittyBob{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-6px) rotate(5deg)}}
+@keyframes kittyWave{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(14deg)}}
+@media(max-width:760px){.page-wrap{grid-template-columns:1fr}.left-panel{display:none}.right-panel{padding:1.25rem 1.5rem 2rem}}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="left-panel">
+    <div>
+      <div class="brand-logo"><h1>Reflecto<span>.</span></h1><span class="kitty-logo">&#x1F43E;</span></div>
+      <div class="brand-tagline">Journal &middot; Study &middot; Focus</div>
+    </div>
+    <ul class="feature-list">
+      <li class="feature-item"><div class="feat-icon">&#x1F324;</div><div class="feat-text"><h4>Mood Tracking</h4><p>Log daily moods and track your streak.</p></div></li>
+      <li class="feature-item"><div class="feat-icon">&#x270D;</div><div class="feat-text"><h4>Private Journal</h4><p>Distraction-free writing with tags.</p></div></li>
+      <li class="feature-item"><div class="feat-icon">&#x1F4DA;</div><div class="feat-text"><h4>Study Notes</h4><p>Full editor with CSV &amp; PDF export.</p></div></li>
+      <li class="feature-item"><div class="feat-icon">&#x2705;</div><div class="feat-text"><h4>Task Manager</h4><p>Priority flags, due dates, overdue detection.</p></div></li>
+      <li class="feature-item"><div class="feat-icon">&#x23F1;</div><div class="feat-text"><h4>Timer &amp; Alarm</h4><p>Pomodoro, countdown, stopwatch, alarm.</p></div></li>
+    </ul>
+    <div class="left-footer"><span>&#x1F512;</span><span>Private &middot; Local JSON &middot; No tracking</span></div>
+  </div>
+  <div class="right-panel">
+    <div class="theme-switcher">
+      <label>Theme</label>
+      <select class="theme-select" onchange="document.documentElement.setAttribute('data-theme',this.value);document.cookie='reflecto_theme='+this.value+';path=/;max-age=31536000'">
+        {% for val,lbl in themes.items() %}
+        <option value="{{ val }}" {% if val==theme %}selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="login-card">
+      <div class="card-header">
+        <div class="card-kitty">&#x1F431;</div>
+        <h2>Welcome back</h2>
+        <p>Sign in to your Reflecto space</p>
+      </div>
+      {% if err == 'noname' %}<div class="error-banner">Please enter a username.</div>
+      {% elif err == 'nopass' %}<div class="error-banner">Please enter a password.</div>
+      {% elif err == 'wrongpass' %}<div class="error-banner">Incorrect password.</div>
+      {% elif ok == 'deleted' %}<div class="ok-banner">User deleted.</div>{% endif %}
+      {% if users %}
+      <div class="prev-users-label">Recent users</div>
+      {% for u in users %}
+      <div class="prev-user-row">
+        <button class="prev-user-btn" onclick="document.getElementById('nameInput').value='{{ u.name }}'">
+          <div class="prev-user-avatar">{{ u.name[0]|upper }}</div>
+          <div><div class="prev-user-name">{{ u.name }}</div>
+          <div class="prev-user-date">{% if u.lastLogin %}Last: {{ u.lastLogin[:10] }}{% endif %}</div></div>
+          <span style="margin-left:auto;color:var(--muted)">&#x2192;</span>
+        </button>
+        <form method="POST" action="/delete_user" onsubmit="return confirm('Delete {{ u.name }}?')">
+          <input type="hidden" name="name" value="{{ u.name }}"/>
+          <button class="btn-del-user" type="submit">&#x1F5D1;</button>
+        </form>
+      </div>
+      {% endfor %}
+      <div class="divider">— or enter new name —</div>
+      {% endif %}
+      <form method="POST" action="/login">
+        <div class="form-group">
+          <label>Username</label>
+          <div class="input-wrap">
+            <span class="input-icon">&#x1F464;</span>
+            <input id="nameInput" class="form-input" type="text" name="name" placeholder="Your name" autocomplete="username"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">&#x1F512;</span>
+            <input class="form-input" type="password" name="password" placeholder="Your password" autocomplete="current-password"/>
+          </div>
+        </div>
+        <button class="btn-submit" type="submit">Enter Reflecto &#x1F43E;</button>
+      </form>
+      <div class="privacy-note">&#x1F512; Data stored locally. No cloud. No tracking.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

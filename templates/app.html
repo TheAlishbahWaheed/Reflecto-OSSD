@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme }}">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reflecto &mdash; {{ user }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<style>
+.pri{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.35rem;flex-shrink:0;vertical-align:middle}
+.pri-high{background:var(--danger)}.pri-medium{background:var(--warning)}.pri-low{background:var(--success)}
+.ncat-filter-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem}
+.ncat-chip{padding:.22rem .75rem;border-radius:20px;font-size:.75rem;background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;text-decoration:none;transition:all .15s}
+.ncat-chip:hover,.ncat-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tag-pill{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:.05rem .45rem;font-size:.65rem;color:var(--muted);margin:.1rem .1rem 0 0}
+.pin-btn{background:none;border:none;color:var(--muted);font-size:.9rem;cursor:pointer;padding:.1rem}
+.pin-btn:hover{color:var(--accent)}
+.t-cb{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);background:transparent;cursor:pointer;flex-shrink:0;margin-top:.15rem;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;transition:background .15s,border-color .15s}
+.t-cb:hover,.t-cb.done-btn{background:var(--accent);border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+{% if ok and ok in toasts %}
+<div class="toast-static {{ toasts[ok][1] }}">{{ toasts[ok][0] }}</div>
+{% endif %}
+
+<input type="checkbox" id="sidebarToggle" style="display:none"/>
+
+<div class="app-root" id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1>Reflecto<span>.</span> <span>&#x1F43E;</span></h1>
+      <div class="brand-user">&#x1F464; {{ user }}</div>
+    </div>
+    {% for pid,label in pages.items() %}
+    <a class="nav-btn {% if page==pid %}active{% endif %}" href="/app?page={{ pid }}">
+      {{ label }}
+      {% if pid=='tasks' and st.pending > 0 %}<span class="badge">{{ st.pending }}</span>{% endif %}
+    </a>
+    {% endfor %}
+    <div class="sidebar-foot">
+      <div class="theme-label">Theme</div>
+      <form method="POST" action="/theme">
+        <input type="hidden" name="page" value="{{ page }}"/>
+        <select class="theme-select" name="theme" onchange="this.form.submit()">
+          {% for val,lbl in themes.items() %}
+          <option value="{{ val }}" {% if val==theme %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <form method="POST" action="/logout" style="margin-top:.25rem">
+        <button class="btn-logout" type="submit">&#x2190; Switch User</button>
+      </form>
+      <form method="POST" action="/reset_data" onsubmit="return confirm('Reset ALL your data? This cannot be undone.')">
+        <button class="btn-reset" type="submit">&#x1F5D1; Reset My Data</button>
+      </form>
+      <a href="/export_pdf" class="btn-reset" style="text-decoration:none;display:block;margin-top:.4rem;text-align:center">&#x1F4C4; Export PDF</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="row" style="gap:.4rem">
+        <label class="hamburger" for="sidebarToggle">&#x2630;</label>
+        <h2>{{ pages[page] }}</h2>
+      </div>
+      <div class="row" style="gap:.6rem">
+        {% if mood_streak >= 2 %}<span class="streak-badge">&#x1F525; {{ mood_streak }}-day streak</span>{% endif %}
+        <span class="date-pill">{{ today }}</span>
+      </div>
+    </div>
+
+    {# ──────────────────────────────────────── MOOD PAGE #}
+    {% if page == 'mood' %}
+    <div class="page active" id="page-mood">
+      <h3 style="margin-bottom:.15rem">Hello, {{ user }} &#x1F44B;</h3>
+      <p style="font-size:.84rem;color:var(--muted);margin-bottom:.75rem">How are you feeling right now?</p>
+      <form method="POST" action="/mood" id="moodForm">
+        <input type="hidden" name="client_time" id="clientTime"/>
+        <input type="hidden" name="client_date" id="clientDate"/>
+        <div class="mood-chips">
+          {% for m in moods %}
+          <button class="chip {% if today_mood==m %}on{% endif %}" type="submit" name="mood" value="{{ m }}">{{ m }}</button>
+          {% endfor %}
+        </div>
+      </form>
+      <div class="stats">
+        <div class="stat"><div class="stat-n">{{ st.journal }}</div><div class="stat-l">Journal Entries</div></div>
+        <div class="stat"><div class="stat-n">{{ st.notes }}</div><div class="stat-l">Study Notes</div></div>
+        <div class="stat"><div class="stat-n">{{ st.pending }}</div><div class="stat-l">Pending Tasks</div></div>
+        <div class="stat"><div class="stat-n">{{ st.mood }}</div><div class="stat-l">Today's Mood</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:500;margin-bottom:.6rem">&#x1F4AD; Quick Thought &rarr; Journal</div>
+        <form method="POST" action="/quick">
+          <textarea name="body" placeholder="Write a quick thought…" rows="3"></textarea>
+          <button class="btn btn-a" type="submit" style="margin-top:.65rem">Save to Journal</button>
+        </form>
+      </div>
+      {% if data.moods %}
+      <div class="card" style="margin-top:1rem">
+        <div style="font-size:.88rem;font-weight:500;margin-bottom:.75rem">Recent Moods</div>
+        {% for m in data.moods[:7] %}
+        <div class="row" style="justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span>{{ m.mood }}</span>
+          <span style="font-size:.75rem;color:var(--muted)">{{ m.date }} {{ m.time }}</span>
+          <form method="POST" action="/mood_del" style="display:inline">
+            <input type="hidden" name="idx" value="{{ loop.index0 }}"/>
+            <button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem">&#x2715;</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# ──────────────────────────────────────── JOURNAL PAGE #}
+    {% elif page == 'journal' %}
+    <div class="page active" id="page-journal">
+      <div class="row" style="gap:.6rem;margin-bottom:1rem">
+        <a class="btn btn-a" href="/app?page=journal">+ New Entry</a>
+      </div>
+      <div class="journal-split">
+        <div class="j-list">
+          {% for e in data.journal %}
+          <a class="j-item {% if cur_entry and cur_entry.id==e.id %}active{% endif %}" href="/app?page=journal&jid={{ e.id }}">
+            <div class="j-title">{{ e.title }}</div>
+            <div class="j-meta">{{ e.date }}{% if e.get('edited') %} &middot; edited{% endif %} &middot; {{ e.body|length }} chars</div>
+            {% if e.tags %}<div>{% for t in e.tags %}<span class="tag-pill">{{ t }}</span>{% endfor %}</div>{% endif %}
+          </a>
+          {% else %}
+          <div style="color:var(--muted);font-size:.85rem;padding:.75rem">No journal entries yet.</div>
+          {% endfor %}
+        </div>
+        <div class="j-editor card">
+          {% if cur_entry %}
+          <form method="POST" action="/journal_save">
+            <input type="hidden" name="id" value="{{ cur_entry.id }}"/>
+            <input class="j-title-input" type="text" name="title" value="{{ cur_entry.title }}" placeholder="Title"/>
+            <textarea class="j-body" name="body" rows="14" placeholder="Write…">{{ cur_entry.body }}</textarea>
+            <input type="text" name="tags" value="{{ cur_entry.tags|join(', ') }}" placeholder="Tags (comma-separated)" style="width:100%;margin-bottom:.6rem"/>
+            <div class="row" style="gap:.5rem">
+              <button class="btn btn-a" type="submit">Save</button>
+              <form method="POST" action="/journal_del" style="display:inline" onsubmit="return confirm('Delete this entry?')">
+                <input type="hidden" name="id" value="{{ cur_entry.id }}"/>
+                <button class="btn" type="submit">&#x1F5D1; Delete</button>
+              </form>
+            </div>
+          </form>
+          {% else %}
+          <form method="POST" action="/journal_save">
+            <input type="hidden" name="id" value=""/>
+            <input class="j-title-input" type="text" name="title" placeholder="Entry title"/>
+            <textarea class="j-body" name="body" rows="14" placeholder="Start writing…"></textarea>
+            <input type="text" name="tags" placeholder="Tags (comma-separated)" style="width:100%;margin-bottom:.6rem"/>
+            <button class="btn btn-a" type="submit">Save Entry</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ──────────────────────────────────────── NOTES PAGE #}
+    {% elif page == 'notes' %}
+    <div class="page active" id="page-notes">
+      <div class="row" style="gap:.6rem;margin-bottom:1rem">
+        <a class="btn btn-a" href="/app?page=notes">+ New Note</a>
+        <form method="GET" action="/app" style="display:flex;gap:.4rem;flex:1">
+          <input type="hidden" name="page" value="notes"/>
+          <input type="text" name="ns" value="{{ nsearch }}" placeholder="Search notes…" style="flex:1"/>
+          <button class="btn" type="submit">&#x1F50D;</button>
+        </form>
+      </div>
+      {% if note_cats %}
+      <div class="ncat-filter-row">
+        <a class="ncat-chip {% if not ncat %}active{% endif %}" href="/app?page=notes{% if nsearch %}&ns={{ nsearch }}{% endif %}">All</a>
+        {% for cat in note_cats %}
+        <a class="ncat-chip {% if ncat==cat %}active{% endif %}" href="/app?page=notes&ncat={{ cat }}{% if nsearch %}&ns={{ nsearch }}{% endif %}">{{ cat }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="notes-grid">
+        {% for n in filtered_notes %}
+        <div class="note-card {% if n.get('pinned') %}pinned{% endif %}">
+          <div class="note-card-head">
+            <span class="note-cat-chip">{{ n.get('cat','General') }}</span>
+            <form method="POST" action="/note_pin" style="display:inline">
+              <input type="hidden" name="id" value="{{ n.id }}"/><button class="pin-btn" type="submit" title="Pin">{{ '&#x1F4CC;' if n.get('pinned') else '&#x1F4CD;' }}</button>
+            </form>
+          </div>
+          <a class="note-title" href="/app?page=notes&nid={{ n.id }}">{{ n.title }}</a>
+          <div class="note-preview">{{ n.body[:100] }}{% if n.body|length > 100 %}…{% endif %}</div>
+          <div class="note-meta">{{ n.date }}{% if n.get('edited') %} &middot; edited{% endif %}</div>
+          <div class="row" style="gap:.4rem;margin-top:.5rem">
+            <a class="btn btn-s" href="/app?page=notes&nid={{ n.id }}">Edit</a>
+            <a class="btn btn-s" href="/note_csv/{{ n.id }}">&#x2B07; CSV</a>
+            <form method="POST" action="/note_del" onsubmit="return confirm('Delete?')" style="display:inline">
+              <input type="hidden" name="id" value="{{ n.id }}"/><button class="btn btn-s" type="submit">&#x1F5D1;</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div style="color:var(--muted);font-size:.85rem">No notes found.</div>
+        {% endfor %}
+      </div>
+      {# Note editor panel if nid in URL #}
+      {% set nid = request.args.get('nid','') %}
+      {% if nid %}
+        {% set cur_note = data.notes | selectattr('id','equalto',nid) | first | default(none) %}
+        {% if cur_note %}
+        <div class="card" style="margin-top:1.5rem">
+          <form method="POST" action="/note_save">
+            <input type="hidden" name="id" value="{{ cur_note.id }}"/>
+            <input type="text" name="title" value="{{ cur_note.title }}" placeholder="Note title" style="width:100%;margin-bottom:.6rem"/>
+            <input type="text" name="cat" value="{{ cur_note.get('cat','General') }}" placeholder="Category" style="width:100%;margin-bottom:.6rem"/>
+            <textarea name="body" rows="12" placeholder="Note content…">{{ cur_note.body }}</textarea>
+            <div class="row" style="gap:.5rem;margin-top:.6rem">
+              <button class="btn btn-a" type="submit">Save</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+      {% else %}
+      <div class="card" style="margin-top:1.5rem">
+        <div style="font-weight:500;margin-bottom:.75rem">New Note</div>
+        <form method="POST" action="/note_save">
+          <input type="hidden" name="id" value=""/>
+          <input type="text" name="title" placeholder="Note title" style="width:100%;margin-bottom:.6rem"/>
+          <input type="text" name="cat" placeholder="Category (e.g. Math, Biology)" style="width:100%;margin-bottom:.6rem"/>
+          <textarea name="body" rows="8" placeholder="Note content…"></textarea>
+          <button class="btn btn-a" type="submit" style="margin-top:.6rem">Save Note</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ──────────────────────────────────────── TASKS PAGE #}
+    {% elif page == 'tasks' %}
+    <div class="page active" id="page-tasks">
+      <div class="card" style="margin-bottom:1rem">
+        <form method="POST" action="/task_add" class="row" style="gap:.5rem;flex-wrap:wrap">
+          <input type="text" name="title" placeholder="New task…" style="flex:2;min-width:160px" required/>
+          <input type="date" name="due" style="flex:1;min-width:120px"/>
+          <select name="priority" style="flex:1;min-width:100px">
+            <option value="high">&#x1F534; High</option>
+            <option value="medium" selected>&#x1F7E1; Medium</option>
+            <option value="low">&#x1F7E2; Low</option>
+          </select>
+          <button class="btn btn-a" type="submit">+ Add</button>
+        </form>
+      </div>
+      {% if pending or done %}
+      <div class="task-progress-wrap"><div class="task-progress" style="width:{{ pct }}%"></div></div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">{{ done|length }}/{{ (pending|length)+(done|length) }} done ({{ pct }}%)</div>
+      {% endif %}
+      <div class="t-list">
+        {% for t in pending %}
+        <div class="t-item {% if is_overdue(t.get('due','')) %}overdue{% endif %}">
+          <form method="POST" action="/task_toggle" style="display:inline">
+            <input type="hidden" name="id" value="{{ t.id }}"/>
+            <button class="t-cb" type="submit" title="Mark done"></button>
+          </form>
+          <div style="flex:1">
+            <span class="pri pri-{{ t.get('priority','medium') }}"></span>{{ t.title }}
+            {% if t.get('due') %}<span class="task-due {% if is_overdue(t.due) %}late{% endif %}"> &middot; {{ t.due }}</span>{% endif %}
+          </div>
+          <form method="POST" action="/task_del" onsubmit="return confirm('Delete task?')" style="display:inline">
+            <input type="hidden" name="id" value="{{ t.id }}"/><button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer">&#x2715;</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% if done %}
+      <div style="margin-top:1rem">
+        <div class="row" style="justify-content:space-between;margin-bottom:.5rem">
+          <span style="font-size:.8rem;color:var(--muted)">Completed ({{ done|length }})</span>
+          <form method="POST" action="/task_clear">
+            <button class="btn btn-s" type="submit">Clear all</button>
+          </form>
+        </div>
+        {% for t in done %}
+        <div class="t-item done">
+          <form method="POST" action="/task_toggle" style="display:inline">
+            <input type="hidden" name="id" value="{{ t.id }}"/>
+            <button class="t-cb done-btn" type="submit">&#x2713;</button>
+          </form>
+          <div style="flex:1;text-decoration:line-through;color:var(--muted)">{{ t.title }}
+            {% if t.get('done_late') %}<span style="color:var(--danger);font-size:.7rem"> (late)</span>{% endif %}
+          </div>
+          <form method="POST" action="/task_del" style="display:inline">
+            <input type="hidden" name="id" value="{{ t.id }}"/><button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer">&#x2715;</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# ──────────────────────────────────────── TIMER PAGE #}
+    {% elif page == 'timer' %}
+    <div class="page active timer-page" id="page-timer">
+      <div class="timer-tabs">
+        <button class="timer-tab active" onclick="switchTab('countdown',this)">&#x23F3; Countdown</button>
+        <button class="timer-tab" onclick="switchTab('stopwatch',this)">&#x23F1; Stopwatch</button>
+        <button class="timer-tab" onclick="switchTab('alarm',this)">&#x1F514; Alarm</button>
+      </div>
+      <div class="timer-panel active" id="panel-countdown">
+        <div class="timer-display" id="cdDisplay">0:00:00</div>
+        <div class="timer-label-row" id="cdLabel">Set a duration below</div>
+        <div class="timer-progress-wrap"><div class="timer-progress" id="cdProgress" style="width:0%"></div></div>
+        <div class="timer-input-row" style="margin-top:.75rem;gap:.5rem;display:flex;flex-wrap:wrap;justify-content:center">
+          <input type="number" id="cdH" placeholder="h" min="0" max="23" style="width:60px"/>
+          <input type="number" id="cdM" placeholder="min" min="0" max="59" style="width:60px"/>
+          <input type="number" id="cdS" placeholder="sec" min="0" max="59" style="width:60px"/>
+        </div>
+        <div class="timer-presets" style="display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;margin:.5rem 0">
+          <button class="timer-btn" onclick="cdPreset(25*60)">25 min</button>
+          <button class="timer-btn" onclick="cdPreset(5*60)">5 min</button>
+          <button class="timer-btn" onclick="cdPreset(15*60)">15 min</button>
+          <button class="timer-btn" onclick="cdPreset(45*60)">45 min</button>
+        </div>
+        <div class="timer-btns">
+          <button class="timer-btn primary" onclick="cdStart()">&#x25B6; Start</button>
+          <button class="timer-btn" onclick="cdPause()">&#x23F8; Pause</button>
+          <button class="timer-btn danger" onclick="cdReset()">&#x21BA; Reset</button>
+        </div>
+      </div>
+      <div class="timer-panel" id="panel-stopwatch">
+        <div class="timer-display" id="swDisplay">00:00.0</div>
+        <div class="timer-label-row" id="swLabel">Ready</div>
+        <div class="timer-btns">
+          <button class="timer-btn primary" onclick="swStart()">&#x25B6; Start</button>
+          <button class="timer-btn" onclick="swPause()">&#x23F8; Pause</button>
+          <button class="timer-btn" onclick="swLap()">&#x1F3C1; Lap</button>
+          <button class="timer-btn danger" onclick="swReset()">&#x21BA; Reset</button>
+        </div>
+        <ul id="lapList" style="list-style:none;margin-top:.75rem;max-height:180px;overflow-y:auto"></ul>
+      </div>
+      <div class="timer-panel" id="panel-alarm">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1rem">
+          <input type="time" id="alarmTime" style="width:150px"/>
+          <input type="text" id="alarmLabel" placeholder="Label (optional)" style="flex:1;min-width:120px"/>
+          <button class="timer-btn primary" onclick="addAlarm()">+ Add</button>
+        </div>
+        <div id="alarmList"></div>
+      </div>
+    </div>
+
+    {# ──────────────────────────────────────── CONTACT PAGE #}
+    {% elif page == 'contact' %}
+    <div class="page active" id="page-contact">
+      <div class="card" style="max-width:600px">
+        <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.6rem">
+          <span style="font-size:1.4rem">&#x1F63A;</span>
+          <span style="font-size:.88rem;color:var(--muted)">Questions, feedback, or a kind meow? Send it our way. &#x1F43E;</span>
+        </div>
+        <h3 style="margin-bottom:.25rem">&#x1F4EC; Send a Message</h3>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">We read every message! Powered by EmailJS — no backend needed.</p>
+        <form id="contactForm">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem">
+            <input name="from_name" type="text" placeholder="Your name" required style="width:100%"/>
+            <input name="reply_to" type="email" placeholder="Your email" required style="width:100%"/>
+          </div>
+          <input name="subject" type="text" placeholder="Subject" required style="width:100%;margin-bottom:.6rem"/>
+          <textarea name="message" placeholder="Your message… (purrr &#x1F63A;)" required rows="5" style="width:100%;margin-bottom:.75rem"></textarea>
+          <button class="btn btn-a" type="submit" style="width:100%;padding:.65rem">Send Message &#x1F43E; &rarr;</button>
+          <p id="contact-status" style="margin-top:.6rem;font-size:.85rem;text-align:center"></p>
+        </form>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+      emailjs.init("7FtdnI3kUCzqPUfdc");
+      document.getElementById("contactForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        var status = document.getElementById("contact-status");
+        var btn = this.querySelector("button[type=submit]");
+        status.textContent = "Sending…";
+        btn.disabled = true;
+        emailjs.sendForm("alishbahwaheed", "template_c2lbgmu", this)
+          .then(function() {
+            status.style.color = "var(--success)";
+            status.textContent = "Message sent! 🎉";
+            document.getElementById("contactForm").reset();
+            btn.disabled = false;
+          })
+          .catch(function() {
+            status.style.color = "var(--danger)";
+            status.textContent = "Failed to send. Please try again.";
+            btn.disabled = false;
+          });
+      });
+    </script>
+
+    {# ──────────────────────────────────────── ABOUT PAGE #}
+    {% elif page == 'about' %}
+    <div class="page active" id="page-about">
+      <div class="card" style="max-width:640px">
+        <h3 style="margin-bottom:.75rem">&#x1F4A1; About Reflecto</h3>
+        <p style="color:var(--muted);font-size:.88rem;line-height:1.7">
+          Reflecto is a private, local-first personal productivity app.<br/>
+          Built with <strong>Python + Flask</strong>, data stored as local JSON files.<br/><br/>
+          Features: Mood tracking &middot; Journal &middot; Study Notes &middot; Tasks &middot; Timer &amp; Alarm<br/>
+          Export: CSV per note &middot; Full PDF export<br/><br/>
+          <strong>No cloud. No tracking. Your data stays on your machine.</strong>
+        </p>
+        <div style="margin-top:1rem;font-size:.78rem;color:var(--muted)">v2.0 &mdash; Python/Flask Port</div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# /main #}
+</div>{# /app-root #}
+
+<script>
+// Stamp client time/date into mood form
+document.addEventListener('DOMContentLoaded',function(){
+  var mf=document.getElementById('moodForm');
+  if(mf){
+    mf.addEventListener('submit',function(){
+      var now=new Date();
+      var h=now.getHours(),m=now.getMinutes(),ap=h>=12?'PM':'AM';
+      h=h%12||12;
+      document.getElementById('clientTime').value=h+':'+(m<10?'0':'')+m+' '+ap;
+      document.getElementById('clientDate').value=(now.getMonth()+1)+'/'+(now.getDate())+'/'+now.getFullYear();
+    });
+  }
+});
+
+// Timer tab switching
+function switchTab(name,btn){
+  document.querySelectorAll('.timer-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.timer-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Countdown ──
+var cdInt=null,cdTotal=0,cdLeft=0,cdRunning=false;
+function cdPreset(s){cdLeft=cdTotal=s;document.getElementById('cdH').value=Math.floor(s/3600)||'';document.getElementById('cdM').value=Math.floor((s%3600)/60)||'';document.getElementById('cdS').value=s%60||'';cdDraw();}
+function cdStart(){
+  if(!cdRunning){
+    var h=parseInt(document.getElementById('cdH').value)||0,m=parseInt(document.getElementById('cdM').value)||0,s=parseInt(document.getElementById('cdS').value)||0;
+    if(!cdLeft)cdLeft=cdTotal=h*3600+m*60+s;
+    if(!cdLeft)return;
+    cdRunning=true;
+    cdInt=setInterval(function(){cdLeft--;cdDraw();if(cdLeft<=0){clearInterval(cdInt);cdRunning=false;alert('Timer done!');cdLeft=0;}},1000);
+  }
+}
+function cdPause(){clearInterval(cdInt);cdRunning=false;}
+function cdReset(){clearInterval(cdInt);cdRunning=false;cdLeft=cdTotal;cdDraw();}
+function cdDraw(){
+  var h=Math.floor(cdLeft/3600),m=Math.floor((cdLeft%3600)/60),s=cdLeft%60;
+  document.getElementById('cdDisplay').textContent=h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  document.getElementById('cdProgress').style.width=(cdTotal?((cdTotal-cdLeft)/cdTotal*100):0)+'%';
+}
+
+// ── Stopwatch ──
+var swInt=null,swMs=0,swRunning=false,swLaps=[];
+function swStart(){if(!swRunning){swRunning=true;var last=Date.now()-swMs;swInt=setInterval(function(){swMs=Date.now()-last;swDraw();},100);}}
+function swPause(){clearInterval(swInt);swRunning=false;}
+function swLap(){if(swRunning){swLaps.push(swMs);var li=document.createElement('li');li.textContent='Lap '+swLaps.length+': '+swFmt(swMs);document.getElementById('lapList').prepend(li);}}
+function swReset(){clearInterval(swInt);swRunning=false;swMs=0;swLaps=[];document.getElementById('swDisplay').textContent='00:00.0';document.getElementById('lapList').innerHTML='';}
+function swDraw(){var m=Math.floor(swMs/60000),s=Math.floor((swMs%60000)/1000),t=Math.floor((swMs%1000)/100);document.getElementById('swDisplay').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s+'.'+t;}
+function swFmt(ms){var m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000),t=Math.floor((ms%1000)/100);return(m<10?'0':'')+m+':'+(s<10?'0':'')+s+'.'+t;}
+
+// ── Alarm ──
+var alarms=[];
+setInterval(function(){
+  var now=new Date(),hh=('0'+now.getHours()).slice(-2),mm=('0'+now.getMinutes()).slice(-2),cur=hh+':'+mm;
+  alarms.forEach(function(a){if(!a.fired&&a.time===cur){a.fired=true;alert('Alarm: '+(a.label||a.time));renderAlarms();}});
+},10000);
+function addAlarm(){
+  var t=document.getElementById('alarmTime').value,l=document.getElementById('alarmLabel').value;
+  if(!t)return;alarms.push({time:t,label:l,fired:false});renderAlarms();
+  document.getElementById('alarmTime').value='';document.getElementById('alarmLabel').value='';
+}
+function removeAlarm(i){alarms.splice(i,1);renderAlarms();}
+function renderAlarms(){
+  var el=document.getElementById('alarmList');
+  el.innerHTML=alarms.map(function(a,i){return'<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border)">'+'<span style="font-size:1.1rem">&#x1F514;</span><b>'+a.time+'</b> '+(a.label?'<span style="color:var(--muted)">'+a.label+'</span>':'')+' '+(a.fired?'<span style="color:var(--success)">(fired)</span>':'')+'<button onclick="removeAlarm('+i+')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted)">&#x2715;</button></div>';}).join('');
+}
+</script>
+</body>
+</html>
