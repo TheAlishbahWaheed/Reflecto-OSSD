@@ -40,12 +40,12 @@ PAGES = {
 TASK_PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 TOAST_MESSAGES = {
-    "mood":    ("Mood logged! 🎉",          "success"),
-    "quick":   ("Saved to Journal! ✍️",     "success"),
-    "saved":   ("Saved successfully ✓",     "success"),
-    "deleted": ("Deleted.",                  ""),
-    "added":   ("Task added! ✅",           "success"),
-    "cleared": ("Cleared completed tasks.", ""),
+    "mood":    ("Mood logged! 🎉",                 "success"),
+    "quick":   ("Saved to Journal! ✍️",            "success"),
+    "saved":   ("Saved successfully ✓",            "success"),
+    "deleted": ("Deleted.",                         ""),
+    "added":   ("Task added! ✅",                  "success"),
+    "cleared": ("Cleared completed tasks.",         ""),
     "reset":   ("All data reset. Fresh start! 🐾", "success"),
 }
 
@@ -119,27 +119,14 @@ def login_required(f):
         return f(*args, **kwargs)
     return wrapper
 
-# ── Shared shortcut: load current user + data ──────────────────────────────
-
-def get_user_data():
-    """Return (username, data_dict) for the logged-in user."""
-    user = session["user"]
-    return user, load_user(user)
-
-def save_and_redirect(user, data, page, **kwargs):
-    """Save user data and redirect to the dashboard."""
-    save_user(user, data)
-    return redirect(url_for("dashboard", page=page, **kwargs))
-
 # ── Auth ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     if "user" in session:
         return redirect(url_for("dashboard"))
-    theme = request.cookies.get("reflecto_theme", "light")
     return render_template("index.html",
-        users=list_users(), theme=theme, themes=THEMES,
+        users=list_users(),
         err=request.args.get("err", ""),
         ok=request.args.get("ok", ""),
     )
@@ -183,7 +170,8 @@ def delete_user_route():
 @app.route("/app")
 @login_required
 def dashboard():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     page = request.args.get("page", "mood")
     if page not in PAGES:
         page = "mood"
@@ -234,7 +222,8 @@ def dashboard():
 @app.route("/theme", methods=["POST"])
 @login_required
 def set_theme():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     theme = request.form.get("theme", "light")
     data["theme"] = theme
     save_user(user, data)
@@ -253,7 +242,8 @@ def reset_data():
 @app.route("/mood", methods=["POST"])
 @login_required
 def mood_log():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     mood = request.form.get("mood", "").strip()
     if mood:
         entry = {
@@ -264,13 +254,15 @@ def mood_log():
         }
         data.setdefault("moods", []).insert(0, entry)
         data["moods"] = data["moods"][:90]
-        return save_and_redirect(user, data, "mood", ok="mood")
+        save_user(user, data)
+        return redirect(url_for("dashboard", page="mood", ok="mood"))
     return redirect(url_for("dashboard", page="mood", ok="mood"))
 
 @app.route("/mood_del", methods=["POST"])
 @login_required
 def mood_del():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     idx = int(request.form.get("idx", -1))
     if 0 <= idx < len(data.get("moods", [])):
         data["moods"].pop(idx)
@@ -282,12 +274,14 @@ def mood_del():
 @app.route("/quick", methods=["POST"])
 @login_required
 def quick_thought():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     body = request.form.get("body", "").strip()
     if body:
         entry = {"id": new_id(), "title": "Quick Thought", "body": body, "date": today(), "tags": []}
         data.setdefault("journal", []).insert(0, entry)
-        return save_and_redirect(user, data, "mood", ok="quick")
+        save_user(user, data)
+        return redirect(url_for("dashboard", page="mood", ok="quick"))
     return redirect(url_for("dashboard", page="mood", ok="quick"))
 
 # ── Journal ────────────────────────────────────────────────────────────────
@@ -295,7 +289,8 @@ def quick_thought():
 @app.route("/journal_save", methods=["POST"])
 @login_required
 def journal_save():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     jid   = request.form.get("id", "")
     title = request.form.get("title", "").strip() or "Untitled"
     body  = request.form.get("body", "").strip()
@@ -316,17 +311,20 @@ def journal_save():
 @app.route("/journal_del", methods=["POST"])
 @login_required
 def journal_del():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     jid = request.form.get("id", "")
     data["journal"] = [e for e in data.get("journal", []) if str(e["id"]) != str(jid)]
-    return save_and_redirect(user, data, "journal", ok="deleted")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="journal", ok="deleted"))
 
 # ── Notes ──────────────────────────────────────────────────────────────────
 
 @app.route("/note_save", methods=["POST"])
 @login_required
 def note_save():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     nid   = request.form.get("id", "")
     title = request.form.get("title", "").strip() or "Untitled"
     body  = request.form.get("body", "").strip()
@@ -348,25 +346,30 @@ def note_save():
 @app.route("/note_del", methods=["POST"])
 @login_required
 def note_del():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     nid = request.form.get("id", "")
     data["notes"] = [n for n in data.get("notes", []) if str(n["id"]) != str(nid)]
-    return save_and_redirect(user, data, "notes", ok="deleted")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="notes", ok="deleted"))
 
 @app.route("/note_pin", methods=["POST"])
 @login_required
 def note_pin():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     nid  = request.form.get("id", "")
     note = find_by_id(data.get("notes", []), nid)
     if note:
         note["pinned"] = not bool(note.get("pinned", False))
-    return save_and_redirect(user, data, "notes")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="notes"))
 
 @app.route("/note_csv/<nid>")
 @login_required
 def note_csv(nid):
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     note = find_by_id(data.get("notes", []), nid)
     if not note:
         return redirect(url_for("dashboard", page="notes"))
@@ -389,8 +392,9 @@ def export_pdf():
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
     from reportlab.lib import colors
 
-    user, data = get_user_data()
-    buf = io.BytesIO()
+    user = session["user"]
+    data = load_user(user)
+    buf  = io.BytesIO()
 
     doc    = SimpleDocTemplate(buf, pagesize=A4,
                                leftMargin=2*cm, rightMargin=2*cm,
@@ -451,7 +455,8 @@ def export_pdf():
 @app.route("/task_add", methods=["POST"])
 @login_required
 def task_add():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     title    = request.form.get("title", "").strip()
     due      = request.form.get("due", "").strip()
     priority = request.form.get("priority", "medium")
@@ -461,13 +466,15 @@ def task_add():
     if title:
         task = {"id": new_id(), "title": title, "due": due, "done": False, "priority": priority}
         data.setdefault("tasks", []).insert(0, task)
-        return save_and_redirect(user, data, "tasks", ok="added")
+        save_user(user, data)
+        return redirect(url_for("dashboard", page="tasks", ok="added"))
     return redirect(url_for("dashboard", page="tasks", ok="added"))
 
 @app.route("/task_toggle", methods=["POST"])
 @login_required
 def task_toggle():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     tid  = request.form.get("id", "")
     task = find_by_id(data.get("tasks", []), tid)
     if task:
@@ -479,22 +486,27 @@ def task_toggle():
         else:
             task["done_late"] = False
             task.pop("done_date", None)
-    return save_and_redirect(user, data, "tasks")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="tasks"))
 
 @app.route("/task_del", methods=["POST"])
 @login_required
 def task_del():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     tid = request.form.get("id", "")
     data["tasks"] = [t for t in data.get("tasks", []) if str(t["id"]) != str(tid)]
-    return save_and_redirect(user, data, "tasks")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="tasks"))
 
 @app.route("/task_clear", methods=["POST"])
 @login_required
 def task_clear():
-    user, data = get_user_data()
+    user = session["user"]
+    data = load_user(user)
     data["tasks"] = [t for t in data.get("tasks", []) if not t.get("done")]
-    return save_and_redirect(user, data, "tasks", ok="cleared")
+    save_user(user, data)
+    return redirect(url_for("dashboard", page="tasks", ok="cleared"))
 
 
 if __name__ == "__main__":
