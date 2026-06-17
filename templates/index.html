@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ theme }}">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Reflecto — Journal · Study · Focus</title>
@@ -18,10 +18,7 @@
 .feat-text h4{font-size:.88rem;color:var(--text);margin-bottom:.08rem}
 .feat-text p{font-size:.75rem;color:var(--muted);line-height:1.5}
 .left-footer{font-size:.68rem;color:var(--muted);opacity:.55;display:flex;gap:.4rem;align-items:center}
-.right-panel{display:flex;flex-direction:column;align-items:center;padding:1.5rem 3.5rem 3rem;overflow-y:auto;min-height:100vh}
-.theme-switcher{width:100%;max-width:420px;display:flex;align-items:center;justify-content:flex-end;gap:.55rem;padding-bottom:1rem}
-.theme-switcher label{font-size:.68rem;color:var(--muted);text-transform:uppercase}
-.theme-select{font-size:.78rem;color:var(--text);background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:.32rem .6rem;cursor:pointer;outline:none}
+.right-panel{display:flex;flex-direction:column;align-items:center;padding:3rem 3.5rem;overflow-y:auto;min-height:100vh;justify-content:center}
 .login-card{background:var(--surface);border:1.5px solid var(--border);border-radius:22px;padding:2.5rem 2.75rem;width:100%;max-width:420px;box-shadow:var(--shadow-lg)}
 .card-header{margin-bottom:1.6rem;text-align:center}
 .card-kitty{font-size:2.4rem;display:inline-block;animation:kittyWave 2.2s ease-in-out infinite;margin-bottom:.45rem}
@@ -70,14 +67,6 @@
     <div class="left-footer"><span>&#x1F512;</span><span>Private &middot; Local JSON &middot; No tracking</span></div>
   </div>
   <div class="right-panel">
-    <div class="theme-switcher">
-      <label>Theme</label>
-      <select class="theme-select" onchange="document.documentElement.setAttribute('data-theme',this.value);document.cookie='reflecto_theme='+this.value+';path=/;max-age=31536000'">
-        {% for val,lbl in themes.items() %}
-        <option value="{{ val }}" {% if val==theme %}selected{% endif %}>{{ lbl }}</option>
-        {% endfor %}
-      </select>
-    </div>
     <div class="login-card">
       <div class="card-header">
         <div class="card-kitty">&#x1F431;</div>
