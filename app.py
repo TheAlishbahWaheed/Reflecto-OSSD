@@ -1,16 +1,12 @@
 import os, csv, io, re, hashlib, time, random
 from datetime import datetime, date, timedelta
 from functools import wraps
-
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, make_response, send_file)
-
 from data import load_user, save_user, delete_user, reset_user, list_users
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "reflecto-secret-dev-key-change-me")
-
-# ── Constants ──────────────────────────────────────────────────────────────
+app.secret_key = os.environ.get("SECRET_KEY", "resflecto-secret-dev-key-change-me")
 
 THEMES = {
     "light": "☀️ Light",      "dark": "🌑 Dark",
@@ -49,19 +45,23 @@ TOAST_MESSAGES = {
     "reset":   ("All data reset. Fresh start! 🐾", "success"),
 }
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
+
 def new_id():
     return str(int(time.time())) + str(random.randint(100, 999))
+
 
 def fmt_date(dt):
     return f"{dt.month}/{dt.day}/{dt.year}"
 
+
 def today():
     return fmt_date(date.today())
+
 
 def is_overdue(due):
     if not due:
@@ -71,6 +71,7 @@ def is_overdue(due):
     except ValueError:
         return False
 
+
 def parse_date(s):
     for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
         try:
@@ -78,6 +79,7 @@ def parse_date(s):
         except ValueError:
             pass
     return None
+
 
 def mood_streak(moods):
     if not moods:
@@ -95,6 +97,7 @@ def mood_streak(moods):
             break
     return streak
 
+
 def dashboard_stats(data):
     today_mood = next(
         (m["mood"] for m in data.get("moods", []) if m.get("date") == today()), ""
@@ -108,28 +111,37 @@ def dashboard_stats(data):
         "mood":    today_mood.split(" ")[0] if today_mood else "—",
     }
 
+
 def find_by_id(collection, item_id):
     return next((item for item in collection if str(item["id"]) == str(item_id)), None)
+
 
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if "user" not in session:
             return redirect(url_for("index"))
-        return f(*args, **kwargs)
+        user = session["user"]
+        data = load_user(user)
+        return f(user, data, *args, **kwargs)
     return wrapper
 
-# ── Auth ───────────────────────────────────────────────────────────────────
+
 
 @app.route("/")
 def index():
     if "user" in session:
         return redirect(url_for("dashboard"))
+    theme = request.cookies.get("reflecto_theme", "light")
+    if theme not in THEMES:
+        theme = "light"
     return render_template("index.html",
         users=list_users(),
         err=request.args.get("err", ""),
         ok=request.args.get("ok", ""),
+        theme=theme,
     )
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -151,12 +163,17 @@ def login():
     session["user"]   = name
     data["lastLogin"] = datetime.now().isoformat()
     save_user(name, data)
-    return redirect(url_for("dashboard"))
+
+    resp = make_response(redirect(url_for("dashboard")))
+    resp.set_cookie("reflecto_theme", data.get("theme", "light"), max_age=31_536_000)
+    return resp
+
 
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("index"))
+
 
 @app.route("/delete_user", methods=["POST"])
 def delete_user_route():
@@ -165,13 +182,11 @@ def delete_user_route():
         delete_user(name)
     return redirect(url_for("index", ok="deleted"))
 
-# ── Dashboard ──────────────────────────────────────────────────────────────
+
 
 @app.route("/app")
 @login_required
-def dashboard():
-    user = session["user"]
-    data = load_user(user)
+def dashboard(user, data):
     page = request.args.get("page", "mood")
     if page not in PAGES:
         page = "mood"
@@ -217,13 +232,10 @@ def dashboard():
         is_overdue=is_overdue, today=today(),
     )
 
-# ── Theme / Reset ──────────────────────────────────────────────────────────
 
 @app.route("/theme", methods=["POST"])
 @login_required
-def set_theme():
-    user = session["user"]
-    data = load_user(user)
+def set_theme(user, data):
     theme = request.form.get("theme", "light")
     data["theme"] = theme
     save_user(user, data)
@@ -231,19 +243,18 @@ def set_theme():
     resp.set_cookie("reflecto_theme", theme, max_age=31_536_000)
     return resp
 
+
 @app.route("/reset_data", methods=["POST"])
 @login_required
-def reset_data():
-    reset_user(session["user"])
+def reset_data(user, data):
+    reset_user(user)
     return redirect(url_for("dashboard", page="mood", ok="reset"))
 
-# ── Mood ───────────────────────────────────────────────────────────────────
+
 
 @app.route("/mood", methods=["POST"])
 @login_required
-def mood_log():
-    user = session["user"]
-    data = load_user(user)
+def mood_log(user, data):
     mood = request.form.get("mood", "").strip()
     if mood:
         entry = {
@@ -255,47 +266,38 @@ def mood_log():
         data.setdefault("moods", []).insert(0, entry)
         data["moods"] = data["moods"][:90]
         save_user(user, data)
-        return redirect(url_for("dashboard", page="mood", ok="mood"))
     return redirect(url_for("dashboard", page="mood", ok="mood"))
+
 
 @app.route("/mood_del", methods=["POST"])
 @login_required
-def mood_del():
-    user = session["user"]
-    data = load_user(user)
+def mood_del(user, data):
     idx = int(request.form.get("idx", -1))
     if 0 <= idx < len(data.get("moods", [])):
         data["moods"].pop(idx)
         save_user(user, data)
     return redirect(url_for("dashboard", page="mood"))
 
-# ── Quick Thought ──────────────────────────────────────────────────────────
+
 
 @app.route("/quick", methods=["POST"])
 @login_required
-def quick_thought():
-    user = session["user"]
-    data = load_user(user)
+def quick_thought(user, data):
     body = request.form.get("body", "").strip()
     if body:
         entry = {"id": new_id(), "title": "Quick Thought", "body": body, "date": today(), "tags": []}
         data.setdefault("journal", []).insert(0, entry)
         save_user(user, data)
-        return redirect(url_for("dashboard", page="mood", ok="quick"))
     return redirect(url_for("dashboard", page="mood", ok="quick"))
 
-# ── Journal ────────────────────────────────────────────────────────────────
 
 @app.route("/journal_save", methods=["POST"])
 @login_required
-def journal_save():
-    user = session["user"]
-    data = load_user(user)
+def journal_save(user, data):
     jid   = request.form.get("id", "")
     title = request.form.get("title", "").strip() or "Untitled"
     body  = request.form.get("body", "").strip()
     tags  = [t.strip() for t in request.form.get("tags", "").split(",") if t.strip()]
-
     if body:
         data.setdefault("journal", [])
         if jid:
@@ -308,28 +310,24 @@ def journal_save():
         save_user(user, data)
     return redirect(url_for("dashboard", page="journal", jid=jid, ok="saved"))
 
+
 @app.route("/journal_del", methods=["POST"])
 @login_required
-def journal_del():
-    user = session["user"]
-    data = load_user(user)
+def journal_del(user, data):
     jid = request.form.get("id", "")
     data["journal"] = [e for e in data.get("journal", []) if str(e["id"]) != str(jid)]
     save_user(user, data)
     return redirect(url_for("dashboard", page="journal", ok="deleted"))
 
-# ── Notes ──────────────────────────────────────────────────────────────────
+
 
 @app.route("/note_save", methods=["POST"])
 @login_required
-def note_save():
-    user = session["user"]
-    data = load_user(user)
+def note_save(user, data):
     nid   = request.form.get("id", "")
     title = request.form.get("title", "").strip() or "Untitled"
     body  = request.form.get("body", "").strip()
     cat   = request.form.get("cat", "General")
-
     if body:
         data.setdefault("notes", [])
         if nid:
@@ -343,21 +341,19 @@ def note_save():
         save_user(user, data)
     return redirect(url_for("dashboard", page="notes", nid=nid, ok="saved"))
 
+
 @app.route("/note_del", methods=["POST"])
 @login_required
-def note_del():
-    user = session["user"]
-    data = load_user(user)
+def note_del(user, data):
     nid = request.form.get("id", "")
     data["notes"] = [n for n in data.get("notes", []) if str(n["id"]) != str(nid)]
     save_user(user, data)
     return redirect(url_for("dashboard", page="notes", ok="deleted"))
 
+
 @app.route("/note_pin", methods=["POST"])
 @login_required
-def note_pin():
-    user = session["user"]
-    data = load_user(user)
+def note_pin(user, data):
     nid  = request.form.get("id", "")
     note = find_by_id(data.get("notes", []), nid)
     if note:
@@ -365,15 +361,13 @@ def note_pin():
     save_user(user, data)
     return redirect(url_for("dashboard", page="notes"))
 
+
 @app.route("/note_csv/<nid>")
 @login_required
-def note_csv(nid):
-    user = session["user"]
-    data = load_user(user)
+def note_csv(user, data, nid):
     note = find_by_id(data.get("notes", []), nid)
     if not note:
         return redirect(url_for("dashboard", page="notes"))
-
     buf = io.StringIO()
     csv.writer(buf).writerows([
         ["Title", "Category", "Date", "Body"],
@@ -383,19 +377,18 @@ def note_csv(nid):
     return send_file(io.BytesIO(buf.getvalue().encode()),
                      mimetype="text/csv", as_attachment=True, download_name=fname)
 
+
+
 @app.route("/export_pdf")
 @login_required
-def export_pdf():
+def export_pdf(user, data):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
     from reportlab.lib import colors
 
-    user = session["user"]
-    data = load_user(user)
     buf  = io.BytesIO()
-
     doc    = SimpleDocTemplate(buf, pagesize=A4,
                                leftMargin=2*cm, rightMargin=2*cm,
                                topMargin=2*cm, bottomMargin=2*cm)
@@ -450,31 +443,25 @@ def export_pdf():
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name=f"reflecto_{user}.pdf")
 
-# ── Tasks ──────────────────────────────────────────────────────────────────
 
 @app.route("/task_add", methods=["POST"])
 @login_required
-def task_add():
-    user = session["user"]
-    data = load_user(user)
+def task_add(user, data):
     title    = request.form.get("title", "").strip()
     due      = request.form.get("due", "").strip()
     priority = request.form.get("priority", "medium")
     if priority not in ("high", "medium", "low"):
         priority = "medium"
-
     if title:
         task = {"id": new_id(), "title": title, "due": due, "done": False, "priority": priority}
         data.setdefault("tasks", []).insert(0, task)
         save_user(user, data)
-        return redirect(url_for("dashboard", page="tasks", ok="added"))
     return redirect(url_for("dashboard", page="tasks", ok="added"))
+
 
 @app.route("/task_toggle", methods=["POST"])
 @login_required
-def task_toggle():
-    user = session["user"]
-    data = load_user(user)
+def task_toggle(user, data):
     tid  = request.form.get("id", "")
     task = find_by_id(data.get("tasks", []), tid)
     if task:
@@ -489,21 +476,19 @@ def task_toggle():
     save_user(user, data)
     return redirect(url_for("dashboard", page="tasks"))
 
+
 @app.route("/task_del", methods=["POST"])
 @login_required
-def task_del():
-    user = session["user"]
-    data = load_user(user)
+def task_del(user, data):
     tid = request.form.get("id", "")
     data["tasks"] = [t for t in data.get("tasks", []) if str(t["id"]) != str(tid)]
     save_user(user, data)
     return redirect(url_for("dashboard", page="tasks"))
 
+
 @app.route("/task_clear", methods=["POST"])
 @login_required
-def task_clear():
-    user = session["user"]
-    data = load_user(user)
+def task_clear(user, data):
     data["tasks"] = [t for t in data.get("tasks", []) if not t.get("done")]
     save_user(user, data)
     return redirect(url_for("dashboard", page="tasks", ok="cleared"))
