@@ -1,4 +1,4 @@
-# Reflecto — Python/Flask Port
+# Reflecto: Python/Flask Port
 
 Personal productivity app: Mood · Journal · Study Notes · Tasks · Timer
 
@@ -23,24 +23,23 @@ pip install -r requirements.txt
 
 # 4. Run
 python app.py
-```
 
 Open **http://localhost:5000** in your browser.
 
 ## Project Structure
 
-```
 reflecto/
 ├── app.py              # Flask routes + helpers
 ├── data.py             # JSON storage layer
 ├── requirements.txt
 ├── data/               # Auto-created; one .json per user
 ├── static/
+    ├── app.js          # backend handling
 │   └── style.css       # All themes (12 colour schemes)
 └── templates/
     ├── index.html      # Login page
     └── app.html        # Main dashboard (all pages)
-```
+    └── base.html       # template for flask/jinja
 
 ## Features
 | Feature | Details |
@@ -50,22 +49,15 @@ reflecto/
 | Journal | Rich entries with tags, word count, edit/delete |
 | Study Notes | Category filter, pin, CSV export per note |
 | Tasks | Priority (high/medium/low), due dates, overdue detection |
-| Timer | Countdown, Stopwatch (laps), Alarm — all client-side JS |
-| PDF Export | Full data export via ReportLab (`/export_pdf`) |
-| Themes | 12 colour themes, persisted via cookie |
+| Timer | Countdown, Stopwatch (laps), Alarm, all client-side JS |
+| PDF Export | Full data export via ReportLab (/export_pdf`) |
+| Themes | 12 colour themes |
 | Data Reset | Wipes all data but keeps theme |
 
-## Environment Variables
-| Variable | Default | Purpose |
-|---|---|---|
-| `SECRET_KEY` | `reflecto-secret-dev-key-change-me` | Flask session key — **change in production** |
+
 
 ## Git Setup
-```bash
 git init
-echo "data/" >> .gitignore
-echo "venv/" >> .gitignore
-echo "__pycache__/" >> .gitignore
 git add .
 git commit -m "Initial Reflecto Flask port"
-```
+
