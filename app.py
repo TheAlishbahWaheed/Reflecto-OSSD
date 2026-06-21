@@ -63,6 +63,7 @@ def today():
     return fmt_date(date.today())
 
 
+
 def is_overdue(due):
     if not due:
         return False
@@ -96,6 +97,7 @@ def mood_streak(moods):
         else:
             break
     return streak
+
 
 
 def dashboard_stats(data):
@@ -160,6 +162,7 @@ def login():
     else:
         data["password"] = hash_password(pw)
 
+
     session["user"]   = name
     data["lastLogin"] = datetime.now().isoformat()
     save_user(name, data)
@@ -191,6 +194,7 @@ def dashboard(user, data):
     if page not in PAGES:
         page = "mood"
 
+
     nsearch = request.args.get("ns", "").strip()
     ncat    = request.args.get("ncat", "")
     all_notes = sorted(data.get("notes", []), key=lambda n: not n.get("pinned", False))
@@ -200,6 +204,8 @@ def dashboard(user, data):
                         or nsearch.lower() in n.get("body", "").lower())
         and (not ncat or n.get("cat", "") == ncat)
     ]
+    
+    
     note_cats = list({n.get("cat", "General") for n in data.get("notes", [])})
 
     all_tasks = data.get("tasks", [])
@@ -231,6 +237,7 @@ def dashboard(user, data):
         moods=MOODS, toasts=TOAST_MESSAGES,
         is_overdue=is_overdue, today=today(),
     )
+
 
 
 @app.route("/theme", methods=["POST"])
