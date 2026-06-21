@@ -65,5 +65,6 @@ def list_users() -> list:
             d = {}
         users.append({"name": name, "lastLogin": d.get("lastLogin", "")})
     users.sort(key=lambda u: u["lastLogin"], reverse=True)
+
     
     return users
