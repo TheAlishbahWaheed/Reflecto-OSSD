@@ -1,4 +1,4 @@
-# Reflecto: Python/Flask Port
+# Reflecto: Python/Flask Implementation
 
 Personal productivity app: Mood · Journal · Study Notes · Tasks · Timer
 
