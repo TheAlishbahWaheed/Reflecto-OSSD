@@ -34,6 +34,11 @@
 .full-field{width:100%;margin-bottom:.6rem}
 .mt-1{margin-top:1rem}
 .mt-15{margin-top:1.5rem}
+.expand-btn{background:none;border:1.5px solid var(--border);border-radius:8px;color:var(--muted);font-size:.78rem;cursor:pointer;padding:.25rem .6rem;margin-bottom:.6rem}
+.expand-btn:hover{border-color:var(--accent);color:var(--accent)}
+.fullpage{position:fixed;inset:0;z-index:50;margin:0;border-radius:0;max-width:none;overflow-y:auto;padding:1.5rem 2rem}
+.fullpage textarea{min-height:60vh}
+.journal-split.hide-list .j-list{display:none}
 </style>
 </head>
 <body>
@@ -105,7 +110,7 @@
       <div class="card">
         <div style="font-size:.88rem;font-weight:500;margin-bottom:.6rem">&#x1F4AD; Quick Thought &rarr; Journal</div>
         <form method="POST" action="/quick">
-          <textarea name="body" placeholder="Write a quick thought…" rows="3"></textarea>
+          <textarea name="body" placeholder="Quick Thought or meow…?" rows="3"></textarea>
           <button class="btn btn-a" type="submit" style="margin-top:.65rem">Save to Journal</button>
         </form>
       </div>
@@ -132,7 +137,7 @@
       <div class="row" style="gap:.6rem;margin-bottom:1rem">
         <a class="btn btn-a" href="/app?page=journal">+ New Entry</a>
       </div>
-      <div class="journal-split">
+      <div class="journal-split" id="journalSplit">
         <div class="j-list">
           {% for e in data.journal %}
           <a class="j-item {% if cur_entry and cur_entry.id==e.id %}active{% endif %}" href="/app?page=journal&jid={{ e.id }}">
@@ -143,7 +148,8 @@
           <div style="color:var(--muted);font-size:.85rem;padding:.75rem">No journal entries yet.</div>
           {% endfor %}
         </div>
-        <div class="j-editor card">
+        <div class="j-editor card" id="journalEditor">
+          <button type="button" class="expand-btn" onclick="toggleFullPage('journalEditor','journalSplit')">&#x26F6; Full page</button>
           {% if cur_entry %}
           <form method="POST" action="/journal_save">
             <input type="hidden" name="id" value="{{ cur_entry.id }}"/>
@@ -174,7 +180,7 @@
         <a class="btn btn-a" href="/app?page=notes">+ New Note</a>
         <form method="GET" action="/app" style="display:flex;gap:.4rem;flex:1">
           <input type="hidden" name="page" value="notes"/>
-          <input type="text" name="ns" value="{{ nsearch }}" placeholder="Search notes…" style="flex:1"/>
+          <input type="text" name="ns" value="{{ nsearch }}" placeholder="Search notes asap!" style="flex:1"/>
           <button class="btn" type="submit">&#x1F50D;</button>
         </form>
       </div>
@@ -186,7 +192,7 @@
         {% endfor %}
       </div>
       {% endif %}
-      <div class="notes-grid">
+      <div class="notes-grid" id="notesGrid">
         {% for n in filtered_notes %}
         <div class="note-card {% if n.get('pinned') %}pinned{% endif %}">
           <div class="note-card-head">
@@ -214,7 +220,8 @@
       {% set nid = request.args.get('nid','') %}
       {% set cur_note = (data.notes | selectattr('id','equalto',nid) | first | default(none)) if nid else none %}
       {% if not nid or cur_note %}
-      <div class="card mt-15">
+      <div class="card mt-15" id="noteEditor">
+        <button type="button" class="expand-btn" onclick="toggleFullPage('noteEditor','notesGrid')">&#x26F6; Full page</button>
         <div style="font-weight:500;margin-bottom:.75rem">{{ 'Edit Note' if cur_note else 'New Note' }}</div>
         <form method="POST" action="/note_save">
           <input type="hidden" name="id" value="{{ cur_note.id if cur_note else '' }}"/>
@@ -342,7 +349,7 @@
           <span style="font-size:.88rem;color:var(--muted)">Questions, feedback, or a kind meow? Send it our way. &#x1F43E;</span>
         </div>
         <h3 style="margin-bottom:.25rem">&#x1F4EC; Send a Message</h3>
-        <p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">We read every message! Powered by EmailJS — no backend needed.</p>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">We read every message!</p>
         <form id="contactForm">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem">
             <input name="from_name" type="text" placeholder="Your name" required style="width:100%"/>
@@ -408,18 +415,18 @@
         <div class="about-mini">
           <div class="about-mini-icon">&#x23F1;</div>
           <h4>Timer &amp; Alarm</h4>
-          <p>A built-in countdown timer, stopwatch with laps, and alarms — handy for Pomodoro-style focus sessions or just keeping time on a task.</p>
+          <p>A built-in countdown timer, stopwatch with laps, and alarms, focus sessions or just keeping time on a task.</p>
         </div>
         <div class="about-mini">
           <div class="about-mini-icon">&#x1F3A8;</div>
           <h4>Themes</h4>
-          <p>Pick from a dozen light and dark palettes — from calm blues and greens to warm browns and purples — and Reflecto remembers your choice next time.</p>
+          <p>Pick from a dozen light and dark palettes,from calm blues and greens to warm browns and purples and Reflecto remembers your choice next time.</p>
         </div>
       </div>
       <h3 style="margin:2rem 0 .9rem">FAQ</h3>
       <details class="faq-item">
         <summary>Where is my data stored?</summary>
-        <div class="faq-body">Everything you write — moods, journal entries, notes, and tasks — is saved as a local JSON file on the machine running Reflecto. Nothing is sent to a server or stored in the cloud.</div>
+        <div class="faq-body">Everything you write moods, journal entries, notes, and tasks is saved as a local JSON file on the machine running Reflecto. Nothing is sent to a server or stored in the cloud.</div>
       </details>
       <details class="faq-item">
         <summary>Is my data shared or tracked in any way?</summary>
@@ -435,7 +442,7 @@
       </details>
       <details class="faq-item">
         <summary>Can more than one person use Reflecto?</summary>
-        <div class="faq-body">Yes. Each person signs in with their own name and password, and gets their own private space and data file — switch users any time from the sidebar.</div>
+        <div class="faq-body">Yes. Each person signs in with their own name and password, and gets their own private space and data file switch users any time from the sidebar.</div>
       </details>
       <details class="faq-item">
         <summary>Do I need an internet connection to use it?</summary>
@@ -446,158 +453,6 @@
     {% endif %}
   </div>{# /main #}
 </div>{# /app-root #}
-<script>
-const pad = n => String(n).padStart(2, '0');
-const formatCountdown = totalSeconds => {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h}:${pad(m)}:${pad(s)}`;
-};
-const formatStopwatch = ms => {
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  const tenths = Math.floor((ms % 1000) / 100);
-  return `${pad(m)}:${pad(s)}.${tenths}`;
-};
-document.addEventListener('DOMContentLoaded', () => {
-  const moodForm = document.getElementById('moodForm');
-  if (!moodForm) return;
-  moodForm.addEventListener('submit', () => {
-    const now = new Date();
-    document.getElementById('clientTime').value =
-      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    document.getElementById('clientDate').value =
-      `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`;
-  });
-});
-function switchTab(name, btn) {
-  document.querySelectorAll('.timer-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.timer-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById(`panel-${name}`).classList.add('active');
-  btn.classList.add('active');
-}
-const countdown = { interval: null, total: 0, left: 0, running: false };
-function cdPreset(seconds) {
-  countdown.left = countdown.total = seconds;
-  document.getElementById('cdH').value = Math.floor(seconds / 3600) || '';
-  document.getElementById('cdM').value = Math.floor((seconds % 3600) / 60) || '';
-  document.getElementById('cdS').value = seconds % 60 || '';
-  cdDraw();
-}
-function cdStart() {
-  if (countdown.running) return;
-  if (!countdown.left) {
-    const h = parseInt(document.getElementById('cdH').value) || 0;
-    const m = parseInt(document.getElementById('cdM').value) || 0;
-    const s = parseInt(document.getElementById('cdS').value) || 0;
-    countdown.left = countdown.total = h * 3600 + m * 60 + s;
-  }
-  if (!countdown.left) return;
-  countdown.running = true;
-  countdown.interval = setInterval(() => {
-    countdown.left--;
-    cdDraw();
-    if (countdown.left <= 0) {
-      cdPause();
-      countdown.left = 0;
-      alert('Timer done!');
-    }
-  }, 1000);
-}
-function cdPause() {
-  clearInterval(countdown.interval);
-  countdown.running = false;
-}
-function cdReset() {
-  cdPause();
-  countdown.left = countdown.total;
-  cdDraw();
-}
-function cdDraw() {
-  document.getElementById('cdDisplay').textContent = formatCountdown(countdown.left);
-  const pct = countdown.total ? (countdown.total - countdown.left) / countdown.total * 100 : 0;
-  document.getElementById('cdProgress').style.width = `${pct}%`;
-}
-const stopwatch = { interval: null, ms: 0, running: false, laps: [] };
- 
-function swStart() {
-  if (stopwatch.running) return;
-  stopwatch.running = true;
-  const startedAt = Date.now() - stopwatch.ms;
-  stopwatch.interval = setInterval(() => {
-    stopwatch.ms = Date.now() - startedAt;
-    document.getElementById('swDisplay').textContent = formatStopwatch(stopwatch.ms);
-  }, 100);
-}
-function swPause() {
-  clearInterval(stopwatch.interval);
-  stopwatch.running = false;
-}
-function swLap() {
-  if (!stopwatch.running) return;
-  stopwatch.laps.push(stopwatch.ms);
-  const li = document.createElement('li');
-  li.textContent = `Lap ${stopwatch.laps.length}: ${formatStopwatch(stopwatch.ms)}`;
-  document.getElementById('lapList').prepend(li);
-}
-function swReset() {
-  swPause();
-  stopwatch.ms = 0;
-  stopwatch.laps = [];
-  document.getElementById('swDisplay').textContent = '00:00.0';
-  document.getElementById('lapList').innerHTML = '';
-}
-const alarms = [];
-setInterval(() => {
-  const now = new Date();
-  const current = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  alarms.forEach(a => {
-    if (!a.fired && a.time === current) {
-      a.fired = true;
-      alert(`Alarm: ${a.label || a.time}`);
-      renderAlarms();
-    }
-  });
-}, 10000);
-function addAlarm() {
-  const time = document.getElementById('alarmTime').value;
-  const label = document.getElementById('alarmLabel').value;
-  if (!time) return;
-  alarms.push({ time, label, fired: false });
-  renderAlarms();
-  document.getElementById('alarmTime').value = '';
-  document.getElementById('alarmLabel').value = '';
-}
-function removeAlarm(i) {
-  alarms.splice(i, 1);
-  renderAlarms();
-}
-function renderAlarms() {
-  const list = document.getElementById('alarmList');
-  list.innerHTML = '';
-  alarms.forEach((alarm, i) => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border)';
-    row.innerHTML = `<span style="font-size:1.1rem">🔔</span><b>${alarm.time}</b>`;
-    if (alarm.label) row.appendChild(makeSpan(alarm.label, 'var(--muted)'));
-    if (alarm.fired) row.appendChild(makeSpan('(fired)', 'var(--success)'));
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'icon-btn';
-    removeBtn.style.marginLeft = 'auto';
-    removeBtn.textContent = '✕';
-    removeBtn.onclick = () => removeAlarm(i);
-    row.appendChild(removeBtn);
- 
-    list.appendChild(row);
-  });
-}
-function makeSpan(text, color) {
-  const span = document.createElement('span');
-  span.style.color = color;
-  span.textContent = text;
-  return span;
-}
-</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
